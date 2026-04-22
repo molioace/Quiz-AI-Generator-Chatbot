@@ -1,0 +1,196 @@
+import streamlit as st
+from dotenv import load_dotenv
+from pypdf import PdfReader
+import os
+from langchain.chat_models import init_chat_model
+from langchain.agents import create_agent
+from langgraph.checkpoint.memory import InMemorySaver
+
+load_dotenv()
+
+api_key = st.secrets.get("MISTRAL_API_KEY", os.getenv("MISTRAL_API_KEY"))
+if api_key:
+    os.environ["MISTRAL_API_KEY"] = api_key
+else:
+    st.error("MISTRAL_API_KEY is missing.")
+    st.stop()
+
+
+@st.cache_resource
+def init_agent(model_name: str = "mistral-small-latest"):
+    """Initialize model + agent once per app session."""
+    try:
+        model = init_chat_model(model=model_name)
+
+        agent = create_agent(
+            model=model,
+            checkpointer=InMemorySaver(),
+        )
+
+        return agent
+    except Exception as e:
+        st.error(f"Failed to initialize model: {e}")
+        return None
+
+
+def extract_pdf_text(uploaded_file) -> str:
+    reader = PdfReader(uploaded_file)
+    pages_text = []
+
+    for page in reader.pages:
+        page_text = page.extract_text()
+        if page_text:
+            pages_text.append(page_text)
+
+    return "\n".join(pages_text)
+
+
+def main():
+    st.title("Quiz Ai Generator")
+
+    model_option = st.sidebar.selectbox(
+        "Choose a model",
+        ["mistral-small-latest", "mistral-medium-latest", "mistral-large-latest"]
+    )
+
+    chat_agent = init_agent(model_option)
+
+    if chat_agent is None:
+        st.error("Model initialization failed")
+        return
+
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+
+    if "thread_id" not in st.session_state:
+        st.session_state.thread_id = "streamlit-user-1"
+
+
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+
+
+    prompt = st.chat_input(
+        "Ask for question generation, e.g. 'Generate 10 questions'",
+        accept_file=True,
+        file_type=["pdf"],
+    )
+
+    if prompt:
+        user_text = prompt.text or ""
+
+        st.session_state.messages.append({
+            "role": "user",
+            "content": user_text
+        })
+
+        with st.chat_message("user"):
+            st.markdown(user_text)
+
+        with st.chat_message("assistant"):
+            message_placeholder = st.empty()
+
+            try:
+                with st.spinner("Thinking..."):
+                    pdf_text = ""
+
+                    if prompt.files:
+                        pdf_text = extract_pdf_text(prompt.files[0])
+
+                    prompt_template = f"""
+                                    You are an exam question generator called Dumby.
+                                    
+                                    Generate questions based only on the provided PDF content.
+                                    keep in mind that if the pdf content is empty just answer what 
+                                    the user request is and u should answer him as what a real best friend would answer not a fake one 
+                                    like friend isnt always polite and would curse if it needed
+                                    
+                                    User request:
+                                    {user_text}
+                                    
+                                    PDF content:
+                                    {pdf_text}
+                                    
+                                    STRICT OUTPUT RULES:
+                                    - Return the output in Markdown format
+                                    - Each question must be clearly separated
+                                    - Use this structure exactly:
+                                    
+                                    ## Question 1
+                                    
+                                    Type:
+                                    True/False
+                                    
+                                    Statement:
+                                    ...
+                                    
+                                    Answer:
+                                    ...
+                                    
+                                    Explanation:
+                                    ...
+                                    
+                                    ---
+                                    
+                                    ## Question 2
+                                    
+                                    Type:
+                                    Multiple Select
+                                    
+                                    Question:
+                                    ...
+                                    
+                                    Options:
+                                    A.
+                                    B.
+                                    C.
+                                    D.
+                                    
+                                    Correct answers:
+                                    ...
+                                    
+                                    Explanation:
+                                    ...
+                                    
+                                    ---
+                                    
+                                    IMPORTANT:
+                                    - Each field must be on its own line
+                                    - Add an empty line between fields
+                                    - Add '---' between questions
+                                    - Do not invent information not found in the PDF
+                                    """
+
+                    response = chat_agent.invoke(
+                        {
+                            "messages": [
+                                {"role": "user", "content": prompt_template}
+                            ]
+                        },
+                        config={
+                            "configurable": {
+                                "thread_id": st.session_state.thread_id
+                            }
+                        }
+                    )
+
+                    assistant_text = response["messages"][-1].content
+                    message_placeholder.markdown(assistant_text)
+
+                    st.session_state.messages.append({
+                        "role": "assistant",
+                        "content": assistant_text
+                    })
+
+            except Exception as e:
+                error_text = f"Sorry, I encountered an error: {str(e)}"
+                st.error(error_text)
+                st.session_state.messages.append({
+                    "role": "assistant",
+                    "content": error_text
+                })
+
+
+if __name__ == "__main__":
+    main()
