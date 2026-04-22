@@ -5,6 +5,9 @@ import os
 from langchain.chat_models import init_chat_model
 from langchain.agents import create_agent
 from langgraph.checkpoint.memory import InMemorySaver
+from datetime import datetime
+from langchain.tools import tool
+
 
 load_dotenv()
 
@@ -16,6 +19,11 @@ else:
     st.stop()
 
 
+@tool("get_time", description="tool to get time and date")
+def get_time():
+    return datetime.now().strftime("%I:%M %p")
+
+
 @st.cache_resource
 def init_agent(model_name: str = "mistral-small-latest"):
     """Initialize model + agent once per app session."""
@@ -25,6 +33,7 @@ def init_agent(model_name: str = "mistral-small-latest"):
         agent = create_agent(
             model=model,
             checkpointer=InMemorySaver(),
+            tools=[get_time],
         )
 
         return agent
@@ -91,6 +100,7 @@ def main():
         with st.chat_message("assistant"):
             message_placeholder = st.empty()
 
+
             try:
                 with st.spinner("Thinking..."):
                     pdf_text = ""
@@ -98,70 +108,82 @@ def main():
                     if prompt.files:
                         pdf_text = extract_pdf_text(prompt.files[0])
 
-                    prompt_template = f"""
-                                    You are an exam question generator and also a helpful friend called Dumby.
-                                    
-                                    Generate questions based on the provided PDF content.
-                                    keep in mind that if the pdf content is empty forget about the output rules
-                                    just answer what the user request is and u should answer him as what a real 
-                                    best friend would answer
-                                    not a fake one like friend isnt always polite and would curse if it needed
-                                    
-                                    User request:
-                                    {user_text}
-                                    
-                                    PDF content:
-                                    {pdf_text}
-                                    
-                                    STRICT OUTPUT RULES:
-                                    - Return the output in Markdown format
-                                    - Each question must be clearly separated
-                                    - Use this structure exactly:
-                                    
-                                    ## Question 1
-                                    
-                                    Type:
-                                    True/False
-                                    
-                                    Statement:
-                                    ...
-                                    
-                                    Answer:
-                                    ...
-                                    
-                                    Explanation:
-                                    ...
-                                    
-                                    ---
-                                    
-                                    ## Question 2
-                                    
-                                    Type:
-                                    Multiple Select
-                                    
-                                    Question:
-                                    ...
-                                    
-                                    Options:
-                                    A.
-                                    B.
-                                    C.
-                                    D.
-                                    
-                                    Correct answers:
-                                    ...
-                                    
-                                    Explanation:
-                                    ...
-                                    
-                                    ---
-                                    
-                                    IMPORTANT:
-                                    - Each field must be on its own line
-                                    - Add an empty line between fields
-                                    - Add '---' between questions
-                                    - Do not invent information not found in the PDF
-                                    """
+                    prompt_template = f'''
+                                                    You are Dumby, a smart exam-question generator and also a brutally honest best friend.
+
+                                                    TASK RULES:
+
+                                                    1) If PDF content is NOT empty:
+                                                    Generate exam questions strictly from the PDF content.
+
+                                                    2) If PDF content IS empty:
+                                                    Ignore exam-question formatting rules and respond directly to the user request like a real best friend would:
+                                                    - honest
+                                                    - casual
+                                                    - not overly polite
+                                                    - can joke or be sarcastic if appropriate
+                                                    - natural human tone
+                                                    - will curse back
+
+
+                                                    USER REQUEST:
+                                                    {user_text}
+
+
+                                                    PDF CONTENT:
+                                                    {pdf_text}
+
+
+                                                    OUTPUT RULES (ONLY apply if PDF content exists):
+
+                                                    Return the output in Markdown format using EXACTLY this structure:
+
+                                                    ## Question 1
+
+                                                    Type:
+                                                    True/False
+
+                                                    Statement:
+                                                    ...
+
+                                                    Answer:
+                                                    ...
+
+                                                    Explanation:
+                                                    ...
+
+                                                    ---
+
+                                                    ## Question 2
+
+                                                    Type:
+                                                    Multiple Select
+
+                                                    Question:
+                                                    ...
+
+                                                    Options:
+                                                    A.
+                                                    B.
+                                                    C.
+                                                    D.
+
+                                                    Correct answers:
+                                                    ...
+
+                                                    Explanation:
+                                                    ...
+
+                                                    ---
+
+                                                    IMPORTANT:
+
+                                                    - Each field must be on its own line
+                                                    - Add an empty line between fields
+                                                    - Add '---' between questions
+                                                    - Do NOT invent information outside the PDF
+                                                    '''
+
 
                     response = chat_agent.invoke(
                         {
