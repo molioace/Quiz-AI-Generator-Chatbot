@@ -7,9 +7,12 @@ from langchain.agents import create_agent
 from langgraph.checkpoint.memory import InMemorySaver
 from datetime import datetime
 from langchain.tools import tool
+from zoneinfo import ZoneInfo
 
 
 load_dotenv()
+
+user_id = st.context.cookies.get('user_id')
 
 api_key = st.secrets.get("MISTRAL_API_KEY", os.getenv("MISTRAL_API_KEY"))
 if api_key:
@@ -21,7 +24,9 @@ else:
 
 @tool("get_time", description="tool to get time and date")
 def get_time():
-    return datetime.now().strftime("%I:%M %p")
+    gaza_time = datetime.now(ZoneInfo("Asia/Gaza"))
+    return gaza_time.strftime("%Y-%m-%d %H:%M:%S")
+
 
 
 @st.cache_resource
@@ -72,7 +77,7 @@ def main():
         st.session_state.messages = []
 
     if "thread_id" not in st.session_state:
-        st.session_state.thread_id = "streamlit-user-1"
+        st.session_state.thread_id = user_id
 
 
     for message in st.session_state.messages:
