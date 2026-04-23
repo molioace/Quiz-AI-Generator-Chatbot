@@ -8,11 +8,26 @@ from langgraph.checkpoint.memory import InMemorySaver
 from datetime import datetime
 from langchain.tools import tool
 from zoneinfo import ZoneInfo
-
+import uuid
+from streamlit_cookies_manager import EncryptedCookieManager
 
 load_dotenv()
 
-user_id = st.context.cookies.get('user_id')
+cookies = EncryptedCookieManager(
+    prefix="myapp_",
+    password="md.ph.02Mo1234MO$mkfk"
+)
+
+if not cookies.ready():
+    st.stop()
+
+if "user_id" not in cookies:
+    user_id = str(uuid.uuid4())
+    cookies["user_id"] = user_id
+    cookies.save()
+else:
+    user_id = cookies["user_id"]
+
 
 api_key = st.secrets.get("MISTRAL_API_KEY", os.getenv("MISTRAL_API_KEY"))
 if api_key:
