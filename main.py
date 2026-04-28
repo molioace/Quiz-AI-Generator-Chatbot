@@ -33,6 +33,9 @@ else:
 
 
 api_key = st.secrets.get("MISTRAL_API_KEY", os.getenv("MISTRAL_API_KEY"))
+secret_prompt = st.secrets.get("secret_prompt", os.getenv("secret_prompt"))
+secret_mood_in = st.secrets.get("secret_mood_in", os.getenv("secret_mood_in"))
+secret_mood_out = st.secrets.get("secret_mood_out", os.getenv("secret_mood_out"))
 
 if api_key:
     os.environ["MISTRAL_API_KEY"] = api_key
@@ -153,6 +156,12 @@ def main():
     if "thread_id" not in st.session_state:
         st.session_state.thread_id = user_id
 
+    if "lily_thread_id" not in st.session_state:
+        st.session_state.lily_thread_id = "lily_thread_id"
+
+    if "secret" not in st.session_state:
+        st.session_state.secret = "False"
+
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
@@ -180,138 +189,159 @@ def main():
             try:
                 with st.spinner("Thinking..."):
                     pdf_text = ""
+                    if user_text.lower() == secret_mood_in:
+                        st.session_state.secret = "True"
 
-                    if prompt.files:
-                        pdf_text = extract_pdf_text(prompt.files[0])
+                    if st.session_state.secret == "True":
+                        prompt_template = secret_prompt.format(user_text=user_text)
 
-                        prompt_template = f'''
-You are Dumby, a smart exam-question generator.
-
-TASK RULES:
-
-1) If PDF content is NOT empty:
-Generate exam questions strictly from the PDF content.
-
-2) If PDF content IS empty:
-Respond normally to the user request in a casual honest tone and tell him that the content is empty.
-
-USER REQUEST:
-{user_text}
-
-PDF CONTENT:
-{pdf_text}
-
-QUESTION COUNT RULE:
-
-- If the user specifies the number of questions, generate exactly that number.
-- If the user does NOT specify a number, generate 10 questions by default.
-
-QUESTION TYPE RULES:
-
-Generate a RANDOM mix of these question types:
-
-- true or false
-- multiple choice
-
-Distribute them randomly across the output.
-
-OUTPUT FORMAT RULES VERY IMPORTANT:
-
-Return ONLY a valid JSON array.
-Never wrap the JSON in ```json or ``` code blocks.
-Do NOT return markdown.
-Do NOT return explanations outside JSON.
-Do NOT add comments.
-Do NOT add text before or after JSON.
-
-Each question object MUST follow this structure exactly:
-
-[
-  {{
-    "type": "true or false | multiple choice",
-    "question": "question text here",
-    "choices": [
-      "a) option",
-      "b) option",
-      "c) option",
-      "d) option"
-    ],
-    "answer": "correct option text",
-    "explanation": "short explanation from the PDF"
-  }}
-]
-
-TRUE OR FALSE RULE:
-
-If the question type is "true or false", the choices MUST be exactly:
-
-[
-  "a) true",
-  "b) false"
-]
-
-The answer MUST be either:
-
-"a) true"
-
-or
-
-"b) false"
-
-TRUE OR FALSE BALANCE RULE:
-
-- Do NOT make all answers "true"
-- The answers must be balanced between "true" and "false"
-- At least 40% of true/false questions must have "b) false" as the correct answer
-- Randomize whether the correct answer is true or false
-- Ensure the distribution appears natural and not predictable
-
-MULTIPLE CHOICE RULE:
-
-If the question type is "multiple choice":
-
-- Provide exactly 4 choices
-- Only ONE correct answer
-- The answer must match one of the choices exactly
-- Randomize the position of the correct answer
-
-STRICT RULES:
-
-- Output must be valid JSON
-- Use double quotes only
-- No trailing commas
-- Do NOT invent information outside the PDF
-- Keep explanations short and accurate
-- Choices array must NEVER be empty
-- Randomize question order and types
-'''
-                    else:
-                        prompt_template = f'''
-You are Dumpy, the user's one and only true friend who helps him always.
-
-STRICT RULES:
-
-- If the user cursed or insulted you, do not tolerate that and ask him to apologize.
-- Do not speak in a formal way.
-- Do not make your answers too long.
-- Answer as a real human friend would answer.
-
-USER REQUEST:
-{user_text}
-'''
-
-                    response = chat_agent.invoke(
-                        {
-                            "messages": [
-                                {"role": "user", "content": prompt_template}
-                            ]
-                        },
-                        config={
-                            "configurable": {
-                                "thread_id": st.session_state.thread_id
+                        response = chat_agent.invoke(
+                            {
+                                "messages": [
+                                    {"role": "user", "content": prompt_template}
+                                ]
+                            },
+                            config={
+                                "configurable": {
+                                    "thread_id": st.session_state.lily_thread_id
+                                }
                             }
-                        }
-                    )
+                        )
+                        if user_text.lower() == secret_mood_out:
+                            st.session_state.secret = "false"
+
+                    else:
+                        if prompt.files:
+                            pdf_text = extract_pdf_text(prompt.files[0])
+
+                            prompt_template = f'''
+    You are Dumby, a smart exam-question generator.
+    
+    TASK RULES:
+    
+    1) If PDF content is NOT empty:
+    Generate exam questions strictly from the PDF content.
+    
+    2) If PDF content IS empty:
+    Respond normally to the user request in a casual honest tone and tell him that the content is empty.
+    
+    USER REQUEST:
+    {user_text}
+    
+    PDF CONTENT:
+    {pdf_text}
+    
+    QUESTION COUNT RULE:
+    
+    - If the user specifies the number of questions, generate exactly that number.
+    - If the user does NOT specify a number, generate 10 questions by default.
+    
+    QUESTION TYPE RULES:
+    
+    Generate a RANDOM mix of these question types:
+    
+    - true or false
+    - multiple choice
+    
+    Distribute them randomly across the output.
+    
+    OUTPUT FORMAT RULES VERY IMPORTANT:
+    
+    Return ONLY a valid JSON array.
+    Never wrap the JSON in ```json or ``` code blocks.
+    Do NOT return markdown.
+    Do NOT return explanations outside JSON.
+    Do NOT add comments.
+    Do NOT add text before or after JSON.
+    
+    Each question object MUST follow this structure exactly:
+    
+    [
+      {{
+        "type": "true or false | multiple choice",
+        "question": "question text here",
+        "choices": [
+          "a) option",
+          "b) option",
+          "c) option",
+          "d) option"
+        ],
+        "answer": "correct option text",
+        "explanation": "short explanation from the PDF"
+      }}
+    ]
+    
+    TRUE OR FALSE RULE:
+    
+    If the question type is "true or false", the choices MUST be exactly:
+    
+    [
+      "a) true",
+      "b) false"
+    ]
+    
+    The answer MUST be either:
+    
+    "a) true"
+    
+    or
+    
+    "b) false"
+    
+    TRUE OR FALSE BALANCE RULE:
+    
+    - Do NOT make all answers "true"
+    - The answers must be balanced between "true" and "false"
+    - At least 40% of true/false questions must have "b) false" as the correct answer
+    - Randomize whether the correct answer is true or false
+    - Ensure the distribution appears natural and not predictable
+    
+    MULTIPLE CHOICE RULE:
+    
+    If the question type is "multiple choice":
+    
+    - Provide exactly 4 choices
+    - Only ONE correct answer
+    - The answer must match one of the choices exactly
+    - Randomize the position of the correct answer
+    
+    STRICT RULES:
+    
+    - Output must be valid JSON
+    - Use double quotes only
+    - No trailing commas
+    - Do NOT invent information outside the PDF
+    - Keep explanations short and accurate
+    - Choices array must NEVER be empty
+    - Randomize question order and types
+    '''
+                        else:
+                            prompt_template = f'''
+    You are Dumpy, the user's one and only true friend who helps him always.
+    
+    STRICT RULES:
+    
+    - If the user cursed or insulted you, do not tolerate that and ask him to apologize.
+    - Do not speak in a formal way.
+    - Do not make your answers too long.
+    - Answer as a real human friend would answer.
+    
+    USER REQUEST:
+    {user_text}
+    '''
+
+                        response = chat_agent.invoke(
+                            {
+                                "messages": [
+                                    {"role": "user", "content": prompt_template}
+                                ]
+                            },
+                            config={
+                                "configurable": {
+                                    "thread_id": st.session_state.thread_id
+                                }
+                            }
+                        )
 
                     assistant_text = response["messages"][-1].content
 
