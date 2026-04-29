@@ -39,7 +39,7 @@ https://chatbot-9be8k3hrzzo7xdspk2v5y9.streamlit.app/
 
 ## 📂 Project Structure
 
-
+```markdown
 chatbot/
 │
 ├── main.py
@@ -161,6 +161,7 @@ def get_time(city: str):
 
 New tools are registered automatically without modifying agent code.
 
+```markdown
 ## 📊 Quiz Rendering Pipeline
 PDF / user request
         ↓
