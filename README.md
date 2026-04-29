@@ -161,7 +161,7 @@ def get_time(city: str):
 
 New tools are registered automatically without modifying agent code.
 
-📊 Quiz Rendering Pipeline
+## 📊 Quiz Rendering Pipeline
 PDF / user request
         ↓
 LLM generates JSON quiz
@@ -178,7 +178,7 @@ user message
 assistant response
 quiz
 next user message
-🌍 Example Tool Usage
+## 🌍 Example Tool Usage
 
 Ask:
 
@@ -190,7 +190,7 @@ get_time("Cairo")
 
 Returns localized time instantly.
 
-🧠 Memory Handling
+## 🧠 Memory Handling
 
 Uses LangGraph checkpoint system:
 
@@ -198,7 +198,7 @@ thread_id = user_cookie_id
 
 Allows persistent conversation context per user session.
 
-📌 Requirements
+## 📌 Requirements
 
 Core dependencies:
 
@@ -210,7 +210,7 @@ langchain-mistralai
 python-dotenv
 pypdf
 streamlit-cookies-manager
-🎯 Future Improvements
+## 🎯 Future Improvements
 
 Planned upgrades:
 
@@ -219,7 +219,7 @@ quiz scoring analytics dashboard
 export quiz to PDF
 multilingual quiz generation
 adaptive difficulty quizzes
-👤 Author
+## 👤 Author
 
 Mohammed Sabbah
 
