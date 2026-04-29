@@ -161,7 +161,7 @@ def get_time(city: str):
 
 New tools are registered automatically without modifying agent code.
 
-```markdown
+```
 ## 📊 Quiz Rendering Pipeline
 PDF / user request
         ↓
